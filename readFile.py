@@ -5,7 +5,7 @@ import re
 from stemming.porter2 import stem
 from nltk.corpus import stopwords
 
-sc = SparkContext("local", "IndexedRDD App")
+sc = SparkContext("local", "Preprocessing App")
 sqlContext = SQLContext(sc)
 
 
