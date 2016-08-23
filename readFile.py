@@ -39,14 +39,6 @@ def removeCAT(doc):
     return l
     
 
-def deduplicate(d1,d2):
-    l = []
-    for item in d2:
-            tup = (d1,item)
-            l.append(tup)
-    return l
-    
-
 def main():
 
 #==============================================================================
@@ -91,7 +83,7 @@ def main():
     
     #add index with each corresponding label separately - flatMapValues
     cleanLabeldata = indexData.flatMapValues(lambda x: x)
-    #print cleanLabeldata.collect()
+    print cleanLabeldata.collect()
     #not printing tuple no for empty tuple.
     #print cleanLabeldata.collect()
 
