@@ -87,10 +87,11 @@ def main():
      
     #add index,swap and cache
     indexData = labelData.zipWithIndex().map(lambda doc:(doc[1],doc[0])).cache()
-     
-    #add index with each corresponding label separately 
-    cleanLabeldata = indexData.map(lambda doc:deduplicate(doc[0],doc[1])).flatMap(lambda x: x)
-     
+    #print indexData.collect()
+    
+    #add index with each corresponding label separately - flatMapValues
+    cleanLabeldata = indexData.flatMapValues(lambda x: x)
+    #print cleanLabeldata.collect()
     #not printing tuple no for empty tuple.
     #print cleanLabeldata.collect()
 
@@ -99,7 +100,7 @@ def main():
 #==============================================================================
     
     joinedDoclabel = stopwordsRemovedDocData.join(cleanLabeldata)
-    print joinedDoclabel.collect()
+    #print joinedDoclabel.collect()
 
 if __name__ == "__main__":
     main()
