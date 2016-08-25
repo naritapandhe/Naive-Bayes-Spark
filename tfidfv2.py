@@ -8,6 +8,7 @@ Created on Thu Aug 25 13:39:15 2016
 #==============================================================================
 # TF implementation full in spark, newjoinedRDD same as joinedRDD discussed while creating readFile script. Narita- you can directly merge the code and just float error in function div needs to be resolved..
 # Unwell so idf implementation by tomm evening if condition stable.
+#Output format: [docid , (total no of words in doc, dict(word: tf))]
 #==============================================================================
 from pyspark import SparkContext
 from pyspark.sql import SQLContext, Row
