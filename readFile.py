@@ -26,17 +26,6 @@ def read_document_data(url):
         data.append(line)
     return data 
 
-def read_document_label_data(url):
-    #read the entire file
-    documentLabels = read_data_from_url(url)
-
-    #create an array of labels/document
-    data = []
-    for line in documentLabels:
-        data.append(line)
-    return data 
-
-
 def clean_word(w):
    #remove everything except aA-zZ    
    x = re.sub("'|\.|\;|\:|\?|\!","", (w.lower()))
@@ -53,7 +42,6 @@ def removeCAT(doc):
     for item in doc:
         if "CAT" in item:
             l.append(item)
-        
     return l
 
 def deduplicate(d1,d2):
@@ -63,49 +51,22 @@ def deduplicate(d1,d2):
             l.append(tup)
     return l    
 
-def clean_labels(docID,docWords):
-    y = re.sub("\n","", docWords)
-    x = y.split(",")
-    returnResults = []
-    allowedCategories = ['CCAT','ECAT','GCAT','MCAT']
-    for word in x:
-        if word in allowedCategories:
-            returnResults.append((docID,word.lower(),docWords))
-    #allowedCats = [word for word in x if word in allowedCategories]
-    return returnResults
+#Calculate Term frequencies
+def tf(term,document):
+    return frequency(term,document)
 
-def someX(words,className):
-    someList = []
-    for word in words:
-        x = (word,[className])
-        someList.append(x)
 
-    z=list(someList)
-    return z        
+def frequency(term,document):   
+    return document.split().count(term)
 
-def someXX(word,classDict,priorProbabilitiesBroadCast):
-    for k in priorProbabilitiesBroadCast.value:
-        if k not in classDict:
-            classDict[k]=0
-    
-    return (word,classDict)     
-
-def conditionalProb(word,wordCatCounts,priorProbabilitiesBroadCast,sizeOfVocab):
-    cpForLabels = dict()
-    for key,value in wordCatCounts.iteritems():
-        totalNoOfWordsForKeyAsClass = priorProbabilitiesBroadCast.get(key)[0]
-        cp = ((value+1)/(totalNoOfWordsForKeyAsClass+sizeOfVocab))
-        cpForLabels[key] = cp
-    
-    return (word,cpForLabels)
 
 def test(docID,docWords,conditionalProbsForVocabBroadCast,priorProbabilitiesBroadCast,vocabSize):
     score = dict()
     for k,v in priorProbabilitiesBroadCast.iteritems():
         score[k] = math.log(v[2])
         for word in docWords:
-            if word in conditionalProbsForVocabBroadCast:
-                score[k] += math.log(conditionalProbsForVocabBroadCast[word][k])
+            if word in conditionalProbsForVocabBroadCast.get(k):
+                score[k] += math.log(conditionalProbsForVocabBroadCast[k][word])
             else:
                 score[k] += math.log (1/v[0]+vocabSize)
 
@@ -113,12 +74,13 @@ def test(docID,docWords,conditionalProbsForVocabBroadCast,priorProbabilitiesBroa
     return (docID,score,z)
 
 
+
 def main():
 
 #==============================================================================
 # Reading the training documents
 #==============================================================================
-    
+    """
     docData = read_document_data('https://s3.amazonaws.com/eds-uga-csci8360/data/project1/X_train_vsmall.txt')
     #create an RDD of the training documents
     entireDocData = sc.parallelize(docData).zipWithIndex().map(lambda doc:(doc[1],doc[0])).cache()
@@ -136,7 +98,6 @@ def main():
     cachedStopWordsBroadCast = sc.broadcast(cachedStopWords)
 
     stopwordsRemovedDocData = cleanedDocData.map(lambda doc:(doc[0], ' '.join([word for word in doc[1].split() if word not in cachedStopWordsBroadCast.value])))
-
 
 #==============================================================================
 # Reading the training labels
@@ -166,71 +127,115 @@ def main():
 #==============================================================================
     
     joinedRDD = stopwordsRemovedDocData.join(cleanLabeldata)
-    labelsAndDocJoinedRDD = joinedRDD.map(lambda (x,y):(x,y[0],y[1]))
-    
+    labelsAndDocJoinedRDD = joinedRDD.map(lambda (x,y):(x,y[0],y[1].lower())).cache()
+
+"""
 #==============================================================================
 # Train the model based on training docs
 #==============================================================================
+    documents = [
+                    [1,'Chinese Beijing Chinese','c'],
+                    [2,'Chinese Chinese Shanghai','c'],
+                    [3,'Chinese Macao','c'],    
+                    [4,'Tokyo Japan Chinese','j']   
+    ]
+    labelsAndDocJoinedRDD = sc.parallelize(documents)
 
     totalNoOfDocs = labelsAndDocJoinedRDD.count()
-
 
     #1) Broadcast the no. of docs to all slaves
     totalNoOfDocsBroadcast = sc.broadcast(totalNoOfDocs)
 
     #This will return the no.of words/class: [{CCAT:8,MCAT:3}]
     wordsPerClass = labelsAndDocJoinedRDD.map(lambda doc:(doc[2],doc[1].split())).reduceByKey(lambda x,y: x+y).cache()
-    countOfWordsPerClass = wordsPerClass.map(lambda x:(x[0],dict(Counter(x[1])))).map(lambda x:(x[0],sum(x[1].values()))).cache()
-
-    #Find the count of documents for each class
-    #returns (classname,classcount)
-    countOfDocumentsPerClass = labelsAndDocJoinedRDD.map(lambda doc:(doc[2],1)).reduceByKey(lambda x,y:x+y).cache()
+    totalNoOfWordsPerClass = wordsPerClass.map(lambda x:(x[0],len(x[1])))
     
+    #Find the count of documents for each class: returns (classname,classcount)
+    countOfDocumentsPerClass = labelsAndDocJoinedRDD.map(lambda doc:(doc[2],1)).reduceByKey(lambda x,y:x+y).cache()
     
     #Combines both counts and produces the following result: [(catName,(countOfWordsPerCat,countOfDocumentsPerCat))]
     #[('GCAT', (3950, 21)), ('CCAT', (3998, 32)), ('MCAT', (1408, 12)), ('ECAT', (2032, 12))]
-    classCounts = countOfWordsPerClass.join(countOfDocumentsPerClass).cache()
+    classCounts = totalNoOfWordsPerClass.join(countOfDocumentsPerClass).cache()
     
-    #Find the priorProbabilities
-    #returns (classname,(countOfWordsPerCat,countOfDocumentsPerCat,priorProbability)):(c,(3,1,3/4))
+    #Find the priorProbabilities: returns (classname,(countOfWordsPerCat,countOfDocumentsPerCat,priorProbability)):(c,(3,1,3/4))
     priorProbabilities = classCounts.map(lambda (eachClassName,eachClassCounts):(eachClassName,(eachClassCounts[0],eachClassCounts[1],(eachClassCounts[1]/totalNoOfDocsBroadcast.value)))).toLocalIterator()
     
     #2) Broadcast the prior probabilities
     priorProbabilitiesBroadCast = sc.broadcast(dict(priorProbabilities))
+    print "Priorsss!!!!!!!"
+    print priorProbabilitiesBroadCast.value
+    print "Priorsss!!!!!!!"
     
+#==============================================================================
+# Train the model based on training docs
+#==============================================================================
+    
+    #Find the vocab
+    vocab = labelsAndDocJoinedRDD.map(lambda x:x[1].split()).flatMap(lambda word: word).map(lambda word:(word,1)).reduceByKey(lambda x,y:x+y).zipWithIndex().map(lambda (x,y):(x[0],y))
+    vocabBroadCast = sc.broadcast(dict(vocab.toLocalIterator()))
+    vocabSizeBroadCast = sc.broadcast(vocab.count())
 
-    #This will return the no. of times that word has appeared in each class
-    # Example: ('broad', {'CCAT': 1}), ('delaware', {'ECAT': 1})
-    trainingDocsVocabCounts = labelsAndDocJoinedRDD.map(lambda x: someX(x[1].split(),x[2])).flatMap(lambda x:x).reduceByKey(lambda x,y: x+y).map(lambda x:(x[0],dict(Counter(x[1]))))
-    vocabSizeBroadCast = sc.broadcast(trainingDocsVocabCounts.count())
-    
+    def featuriseDoc(document):
+        vec = dict()
+        for word in vocabBroadCast.value:
+            vec[word] = tf(word,document)
+        return vec    
 
-    
-    trainingDocsVocabCountsWrtAllClasses = trainingDocsVocabCounts.map(lambda (x,y):someXX(x,y,priorProbabilitiesBroadCast))
-    
+    def findConditionalProb(className,classVocab):
+        result = dict()
+        totalCountOfWordsInClassName = sum(classVocab.values())
+        cp = 0
+        for word in vocabBroadCast.value:
+            if word in classVocab:
+                cp = ((classVocab.get(word)+1)/(totalCountOfWordsInClassName+vocabSizeBroadCast.value))
+            else:
+                cp = ((1)/(totalCountOfWordsInClassName+vocabSizeBroadCast.value))
 
-    #.toLocalIterator()
-    conditionalProbsForVocab = trainingDocsVocabCountsWrtAllClasses.map(lambda (word,wordCatCounts): conditionalProb(word,wordCatCounts,priorProbabilitiesBroadCast.value,vocabSizeBroadCast.value)).toLocalIterator()
-    conditionalProbsForVocabBroadCast = sc.broadcast(dict(conditionalProbsForVocab))
+            result[word] = cp
+        
+        return result       
+
+    #Create feature vectors. This will output: [1,[Chinese:2, Beijing:1, Shanghai:0, Macao:0, Tokyo:0,Japan:0],c]
+    featureVectorisedDocs = labelsAndDocJoinedRDD.map(lambda doc:(doc[0],featuriseDoc(doc[1]),doc[2]))
+
+    #Build the vocab wrt class
+    classWiseWordCounts = labelsAndDocJoinedRDD.map(lambda doc:(doc[2],doc[1].split())).reduceByKey(lambda x,y:x+y).map(lambda (x,y):(x,dict(Counter(y))))
+    
+    #For each class find the cp for each word in vocab
+    conditionalProbabilities = classWiseWordCounts.map(lambda (x,y):(x,findConditionalProb(x,y))).toLocalIterator()
+    conditionalProbabilitiesBroadCast = sc.broadcast(dict(conditionalProbabilities))
+    print "CPSSSSSSS"
+    print conditionalProbabilitiesBroadCast.value
+    print "CPSSSSSSS"
 
 #==============================================================================
-# All we need now is: conditionalProbsForVocabBroadCast, priorProbabilitiesBroadCast, vocabSizeBroadCast
+# All we will use now is: conditionalProbsForVocabBroadCast, priorProbabilitiesBroadCast, vocabSizeBroadCast
 # Test the model
 #==============================================================================
 
+    testDocuments = [
+                    [5,'Chinese Chinese Chinese Tokyo Japan'],
+                    [6,'India Japan']
+                ]           
+
+    testDOCRDD = sc.parallelize(testDocuments)
+    results = testDOCRDD.map(lambda doc: test(doc[0],doc[1].split(),conditionalProbabilitiesBroadCast.value,priorProbabilitiesBroadCast.value,vocabSizeBroadCast.value))
+    
+
     #read the documents from training file
-    testDocData = read_document_data('https://s3.amazonaws.com/eds-uga-csci8360/data/project1/X_test_vsmall.txt')
+    #testDocData = read_document_data('https://s3.amazonaws.com/eds-uga-csci8360/data/project1/X_test_vsmall.txt')
 
     #create an RDD of the training documents
-    testEntireDocData = sc.parallelize(testDocData).zipWithIndex().map(lambda doc:(doc[1],doc[0])).cache()
-    cleanedTestDocData = testEntireDocData.map(lambda doc:(doc[0]," ".join(map(lambda y: clean_word(y), doc[1].split())))).map(lambda doc:(doc[0],clean_doc(doc[1]).strip()))
+    #testEntireDocData = sc.parallelize(testDocData).zipWithIndex().map(lambda doc:(doc[1],doc[0])).cache()
+    #cleanedTestDocData = testEntireDocData.map(lambda doc:(doc[0]," ".join(map(lambda y: clean_word(y), doc[1].split())))).map(lambda doc:(doc[0],clean_doc(doc[1]).strip()))
     
     #remove stop words from the training documents
-    stopwordsRemovedTestDocData = cleanedTestDocData.map(lambda doc:(doc[0], ' '.join([word for word in doc[1].split() if word not in cachedStopWordsBroadCast.value])))
-    wordsSplittedOfTestDocData = stopwordsRemovedTestDocData.map(lambda doc:test(doc[0],doc[1].split(),conditionalProbsForVocabBroadCast.value,priorProbabilitiesBroadCast.value,vocabSizeBroadCast.value))
+    #stopwordsRemovedTestDocData = cleanedTestDocData.map(lambda doc:(doc[0], ' '.join([word for word in doc[1].split() if word not in cachedStopWordsBroadCast.value])))
+    #wordsSplittedOfTestDocData = stopwordsRemovedTestDocData.map(lambda doc:test(doc[0],doc[1].split(),conditionalProbsForVocabBroadCast.value,priorProbabilitiesBroadCast.value,vocabSizeBroadCast.value))
     
-    results = wordsSplittedOfTestDocData.map(lambda doc:doc[2]).collect()
-    for i in results:
+    
+    results1 = results.map(lambda doc:doc[2]).collect()
+    for i in results1:
         print i
     
    
