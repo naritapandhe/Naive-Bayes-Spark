@@ -20,7 +20,26 @@ def read_document_data(url):
     return data    
 
 def checkIfExist(labelList,output):
-    returnResults = []
+    
+	returnResults= []
+	flag= False
+	for word in labelList:
+		if "CAT" in word:
+			flag= True
+			if output == word.lower():
+            returnResults.append(('T',1))
+            break
+			
+	if flag== True && len(returnResults)==0:
+		returnResults.append(('F',1))
+		
+	if flag== False
+		returnResults.append(('S',1))
+	
+	return returnResults
+	
+	#<---original code--->
+	""returnResults = []
     for word in labelList:
         if output == word.lower():
             returnResults.append(('T',1))
@@ -28,8 +47,10 @@ def checkIfExist(labelList,output):
         
     if len(returnResults) == 0:
         returnResults.append(('F',1))
+		
+	return returnResults""
+	#<----original code--->
 
-    return returnResults   
     
     
 def main():
