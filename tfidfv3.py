@@ -17,10 +17,12 @@ Created on Thu Aug 25 13:39:15 2016
 # TF Output format : [(word,(docid,tf))]
 # IDF Output format: [(word,idf)]
 #==============================================================================
+from __future__ import division
 from pyspark import SparkContext
 from pyspark.sql import SQLContext, Row
 from collections import Counter
 import math
+
 
 sc = SparkContext("local", "tfidf App")
 sqlContext = SQLContext(sc)
