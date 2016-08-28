@@ -21,7 +21,6 @@ def read_stop_words():
 def read_data_from_url(url):
     return urllib.urlopen(url)
 
-
 def read_document_data(url):
     #read the entire file
     documentText = read_data_from_url(url)
@@ -51,23 +50,6 @@ def removeCAT(doc):
         if "CAT" in word:
             l.append(word.lower())
     return l
-
-def deduplicate(d1,d2):
-    l = ""
-    for item in d2:
-            tup = (d1,item)
-            l.append(tup)
-    return ''.join(l)    
-
-#Calculate Term frequencies
-def tf(term,document):
-    return frequency(term,document)
-
-
-def frequency(term,document):   
-    return document.split().count(term)
-
-
 
 def joinOverride(docID,docWords,broadCastedLabels):
     output = []
@@ -103,12 +85,8 @@ def test(docID,docWords,classWiseWordCounts,wordAndDocCountPerClass,vocabSize,to
 def main():
 
     sc = SparkContext(conf = SparkConf().setAppName("Distributed NB"))
-    
-    #print(stopWords.value)
+   
     stopWords = sc.broadcast(read_stop_words())
-    #cachedStopWords = map(lambda word: word.encode("utf-8"),readStopWords)
-
-
 #==============================================================================
 # Read the training documents
 #==============================================================================
@@ -120,8 +98,7 @@ def main():
     #entireDocData = sc.parallelize(docData).zipWithIndex().map(lambda doc:(doc[1],doc[0])).cache()
     entireDocData = docData.zipWithIndex().map(lambda doc:(doc[1],clean_word(doc[0]))).cache()
     cleanedDocData = entireDocData.map(lambda doc:(doc[0],clean_doc(doc[1])))
-    
-   
+
 #==============================================================================
 # Reading the training labels
 #==============================================================================
@@ -134,7 +111,7 @@ def main():
     labelData1 = labelData.map(lambda doc: removeCAT(doc)).zipWithIndex().map(lambda doc:(doc[1],doc[0])).toLocalIterator()
     labelDataOrderedDict = OrderedDict((k, v) for (k,v) in labelData1)
     labelDataOrderedDictBroadCast = sc.broadcast(labelDataOrderedDict)
-    
+
 #==============================================================================
 # Map Side Join
 #==============================================================================
@@ -206,7 +183,7 @@ def main():
     x = results.toLocalIterator()
        
     orig_stdout = sys.stdout
-    f = file('bluedataOutput.txt', 'w')
+    f = file('naiveBayesOutput.txt', 'w')
     sys.stdout = f
 
     for i in x:
