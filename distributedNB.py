@@ -173,7 +173,7 @@ def main():
     cleanedTestDocData.take(1)
     
     #remove stop words from the training documents: returns (0,['w1','w2','w3'])
-    stopwordsRemovedTestDocData = cleanedTestDocData.map(lambda doc:(doc[0], ([word for word in doc[1].split() if word not in stopWords.value])))
+    stopwordsRemovedTestDocData = cleanedTestDocData.map(lambda doc:(doc[0], ([word for word in doc[1].split() if word not in stopWords.value and len(word)>2])))
     
     wordsSplittedOfTestDocData = stopwordsRemovedTestDocData.map(lambda doc:test(doc[0],doc[1],individualWordCountPerClassDictBroadCast.value,wordAndDocCountPerClassBroadCast.value,vocabSizeBroadCast.value,totalNoOfDocsBroadCast.value))
     wordsSplittedOfTestDocData.take(1)
@@ -187,7 +187,7 @@ def main():
     sys.stdout = f
 
     for i in x:
-        print i.upper()
+        print i.lower()
 
     sys.stdout = orig_stdout
     f.close() 
