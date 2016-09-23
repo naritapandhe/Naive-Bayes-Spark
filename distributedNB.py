@@ -3,8 +3,6 @@ import urllib
 from pyspark import SparkContext, SparkConf
 from pyspark.sql import SQLContext, Row
 import re
-#from stemming.porter2 import stem
-#from nltk.corpus import stopwords
 from collections import Counter
 import math
 import sys
@@ -35,7 +33,6 @@ def read_document_data(url):
 def clean_word(w):
    #remove everything except aA-zZ    
    x = re.sub("'|\.|\;|\:|\?|\!","", (w.lower()))
-   #return re.sub("\,|\.|\;|\:|\;|\?|\!|\[|\]|\}|\{|&quot|'|&amp|-|\d+"," ", x)
    return re.sub('\&quot|\&amp|[^a-zA-Z]'," ",x)
 
 def clean_doc(words):
@@ -67,9 +64,8 @@ def test(docID,docWords,classWiseWordCounts,wordAndDocCountPerClass,vocabSize,to
     #where (prior prob of class(x)) = (total #docs in class(x))/(total #docs)
     #cpw (count(w,c)+1)/count(c)+|vocabSize|
     docProbability = dict()
-    #{CCAT,(800,21)}
     for label,value in wordAndDocCountPerClass.iteritems():
-        #calculate prior
+        #calculate priors
         docProbability[label] = math.log(calPrior(value[1],float(totalNoOfDocs)))
         for word in docWords:
             wordCount = classWiseWordCounts.get(label).get(word)
@@ -92,10 +88,8 @@ def main():
 #==============================================================================
 
     docData = sc.textFile('dtap://TenantStorage/students/csci8360/p1/X_train_large.txt',25).map(lambda doc:doc.encode("utf-8").strip())
-    #docData = sc.textFile('X_train_small.txt',35).map(lambda doc:doc.encode("utf-8").strip())
 
     #create an RDD of the training documents
-    #entireDocData = sc.parallelize(docData).zipWithIndex().map(lambda doc:(doc[1],doc[0])).cache()
     entireDocData = docData.zipWithIndex().map(lambda doc:(doc[1],clean_word(doc[0]))).cache()
     cleanedDocData = entireDocData.map(lambda doc:(doc[0],clean_doc(doc[1])))
 
@@ -104,8 +98,7 @@ def main():
 #==============================================================================
     #read the documents from training file
     labelData = sc.textFile('dtap://TenantStorage/students/csci8360/p1/y_train_large.txt',25).map(lambda doc:doc.encode("utf-8").strip())
-    #labelData = sc.textFile('y_train_large.txt',35).map(lambda doc:doc.encode("utf-8").strip())
- 
+
     #create an RDD of the labels
     #filter words suffixed with 'CAT'
     labelData1 = labelData.map(lambda doc: removeCAT(doc)).zipWithIndex().map(lambda doc:(doc[1],doc[0])).toLocalIterator()
@@ -118,7 +111,6 @@ def main():
     mapSideJoinedRDD = cleanedDocData.flatMap(lambda doc:joinOverride(doc[0],doc[1],labelDataOrderedDictBroadCast.value))
     
     #remove stop words from the training documents
-    #labelsAndDocJoinedRDD = mapSideJoinedRDD.map(lambda doc:(doc[0], ([word for word in doc[1].split() if word not in stopWords.value]),doc[2])).cache()
     labelsAndDocJoinedRDD = mapSideJoinedRDD.map(lambda doc:(doc[2], ([word for word in doc[1].split() if word not in stopWords.value]))).cache()
     labelsAndDocJoinedRDD.take(1)
     
@@ -141,8 +133,6 @@ def main():
                                 lambda wordCount, docCount: (wordCount[0] + docCount[0], wordCount[1] + docCount[1])).collectAsMap()
 
     wordAndDocCountPerClassBroadCast = sc.broadcast(dict(wordAndDocCountPerClass))
-    #print "wordAndDocCountPerClassBroadCast!!!!!"
-    #print wordAndDocCountPerClassBroadCast.value
     print "wordAndDocCountPerClassBroadCast!!!!!"
 #==============================================================================
 # Part 1: Counts for Conditional Probs; count(w,c)
@@ -155,8 +145,6 @@ def main():
 
     individualWordCountPerClassDict = individualWordCountPerClass.map(lambda (x,y):(x,dict(y[0]))).toLocalIterator()
     individualWordCountPerClassDictBroadCast = sc.broadcast(dict(individualWordCountPerClassDict))
-    #print "individualWordCountPerClassDictBroadCast!!!!!"
-    #print individualWordCountPerClassDictBroadCast.value
     print "individualWordCountPerClassDictBroadCast!!!!!"
 #==============================================================================
 # Testing
@@ -164,10 +152,8 @@ def main():
     print "testing begins!!!!!"
     #read the documents from training file
     testDocData =  sc.textFile('dtap://TenantStorage/studets/csci8360/p1/X_test_large.txt',25).map(lambda doc:doc.encode("utf-8").strip())
-    #testDocData =  sc.textFile('X_test_large.txt',35).map(lambda doc:doc.encode("utf-8").strip())
     
     #create an RDD of the training documents
-    #testEntireDocData = sc.parallelize(testDocData).zipWithIndex().map(lambda doc:(doc[1],doc[0])).cache()
     testEntireDocData = testDocData.zipWithIndex().map(lambda doc:(doc[1],clean_word(doc[0]))).cache()
     cleanedTestDocData = testEntireDocData.map(lambda doc:(doc[0],clean_doc(doc[1])))
     cleanedTestDocData.take(1)
